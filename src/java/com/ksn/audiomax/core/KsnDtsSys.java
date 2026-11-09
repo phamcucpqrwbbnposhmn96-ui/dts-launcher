@@ -65,6 +65,55 @@ public final class KsnDtsSys {
         return ignored;
     }
 
+    /** 一键后台超强保护: 把所有能保留后台的权限一次性申请/引导. 返回摘要(供设置页显示). */
+    public static String guardBackground(Context ctx) {
+        StringBuilder sb = new StringBuilder();
+        // 1) 电池优化白名单(可程序化请求)
+        try {
+            PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
+            if (pm != null && Build.VERSION.SDK_INT >= 26) {
+                if (pm.isIgnoringBatteryOptimizations(ctx.getPackageName())) {
+                    sb.append("电池白名单=已豁免; ");
+                } else {
+                    Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                            Uri.parse("package:" + ctx.getPackageName()))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    try { ctx.startActivity(i); sb.append("电池白名单=已弹请求(需确认); "); }
+                    catch (Throwable e) { sb.append("电池白名单=申请失败; "); }
+                }
+            }
+        } catch (Throwable t) { sb.append("电池白名单=?; "); }
+        // 2) 自启动 / 关联启动 / 后台运行 (各 ROM 系统页, 深链; 打不开就落回 App 详情页)
+        String[] autoTargets = {
+            "com.vivo.permissionmanager",      // vivo 自启动
+            "com.huawei.systemmanager",        // 华为 应用启动管理
+            "com.miui.securitycenter",          // 小米 自启动管理
+            "com.coloros.safecenter",          // OPPO/一加
+            "com.samsung.android.lool",        // 三星
+        };
+        boolean openedAuto = false;
+        for (String pkg : autoTargets) {
+            try {
+                android.content.pm.PackageInfo pi;
+                try { pi = ctx.getPackageManager().getPackageInfo(pkg, 0); }
+                catch (Throwable ex) { continue; }
+                if (pi == null) continue;
+                Intent i = ctx.getPackageManager().getLaunchIntentForPackage(pkg);
+                if (i != null) { i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); ctx.startActivity(i); openedAuto = true; break; }
+            } catch (Throwable ignored) {}
+        }
+        sb.append(openedAuto ? "自启动/后台页=已打开(勾选本应用); " : "自启动页=请手动进系统设置开自启动; ");
+        // 3) 打开本应用详情页(锁屏通知/后台弹出等可在此确认)
+        try {
+            Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + ctx.getPackageName())).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            ctx.startActivity(i);
+            sb.append("已打开本应用详情页; ");
+        } catch (Throwable ignored) {}
+        log("后台保护: " + sb);
+        return sb.toString();
+    }
+
     /** 注入执行: 版本判断 + 多方法尝试 + 回退 + 日志. 返回 0=成功, <0=失败. */
     public static int inject(Context ctx, String mode) {
         int sdk = Build.VERSION.SDK_INT;

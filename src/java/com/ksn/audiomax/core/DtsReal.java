@@ -187,6 +187,24 @@ public final class DtsReal {
                             try { com.ksn.audiomax.core.KsnDtsSys.toastResult(c); } catch (Throwable ignored) {}
                             try { c.getSharedPreferences("application", 0).edit().putBoolean("dtsx_inject_log", false).apply(); } catch (Throwable ignored) {}
                         }
+                        // 「一键后台超强保护」: 翻到 on 批量申请/引导所有后台保留权限, 再复位
+                        boolean bgGuard = sp.getBoolean("dtsx_bg_guard", false);
+                        if (bgGuard) {
+                            final android.content.Context cc = c;
+                            new java.lang.Thread(new java.lang.Runnable() {
+                                public void run() {
+                                    try {
+                                        String r = com.ksn.audiomax.core.KsnDtsSys.guardBackground(cc);
+                                        android.util.Log.i("DtsReal", "后台保护: " + r);
+                                        try {
+                                            android.widget.Toast t = android.widget.Toast.makeText(cc, "【后台保护】" + r, android.widget.Toast.LENGTH_LONG);
+                                            t.show();
+                                        } catch (Throwable ignored) {}
+                                    } catch (Throwable ignored) {}
+                                    try { cc.getSharedPreferences("application", 0).edit().putBoolean("dtsx_bg_guard", false).apply(); } catch (Throwable ignored) {}
+                                }
+                            }, "dtsx-bg-guard").start();
+                        }
                     } catch (Throwable ignored) {}
                     try { java.lang.Thread.sleep(1500); } catch (InterruptedException e) { break; }
                 }
