@@ -1,0 +1,8 @@
+id=dts_launch
+name=DTS Launcher (root)
+version=1.0
+versionCode=1
+description=真 DTS 解码 + 系统音频注入(root): 开机自启 DTS 处理服务, 不依赖 App UI, 重启不掉
+author=KASINWAVL
+repo=https://github.com/phamcucpqrwbbnposhmn96-ui/dts-launcher
+min=24

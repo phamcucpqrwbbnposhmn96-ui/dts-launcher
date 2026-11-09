@@ -29,6 +29,10 @@ public final class KsnDtsSys {
     private static final String TAG = "KsnDtsJAMU";
     private static final String LOG_NAME = "ksn_dts_inject.log";
     private static PowerManager.WakeLock sWakelock;
+    /** 最近一次注入结果(供设置页 Toast / 摘要显示). */
+    private static volatile String sLastResult = "(尚未运行注入)";
+    /** 最近若干行执行日志(实时给设置页看). */
+    private static final java.util.Deque<String> sLogLines = new java.util.concurrent.ConcurrentLinkedDeque<String>();
 
     public static String engineLabel() {
         return "DTS:X";
@@ -68,13 +72,14 @@ public final class KsnDtsSys {
         log("=== 注入开始 === 设备=" + rom + " 用户uid=" + Process.myUid());
         // 方法 1: Shizuku 免 root(adb/开发者模式)特权音频代理 —— 主路径
         int r1 = tryMethod(ctx, 1, "Shizuku(rootless 代理)");
-        if (r1 >= 0) { log("方法1 Shizuku 注入成功"); return 0; }
+        if (r1 >= 0) { log("方法1 Shizuku 注入成功"); sLastResult = "✓ 注入成功 (方法1 Shizuku 免root)"; return 0; }
         log("方法1 Shizuku 失败(r=" + r1 + ") → 自动切方法2");
         // 方法 2: adb 侧激活 Shizuku(需 USB adb 在线)
         int r2 = tryMethod(ctx, 2, "adb 激活 Shizuku");
-        if (r2 >= 0) { log("方法2 adb-Shizuku 注入成功"); return 0; }
+        if (r2 >= 0) { log("方法2 adb-Shizuku 注入成功"); sLastResult = "✓ 注入成功 (方法2 adb 激活 Shizuku)"; return 0; }
         log("方法2 adb-Shizuku 失败 → 提示用户手动");
         log("注入未成功: 需用户在 Shizuku 里授权 + adb 激活, 或 root 下用 Magisk 音频模块");
+        sLastResult = "✗ 未成功: Shizuku 未连/未授权, 需 adb 激活或在 Shizuku 里授权; 或 root 用 Magisk 模块";
         return -1;
     }
 
@@ -120,9 +125,12 @@ public final class KsnDtsSys {
         return shizukuUp ? 0 : -1;
     }
 
-    /* ---- 注入执行日志: logcat + 本地文件(用户可查) ---- */
+    /* ---- 注入执行日志: logcat + 本地文件(用户可查) + 内存最近行(设置页实时看) ---- */
     private static void log(String msg) {
         Log.i(TAG, "INJ: " + msg);
+        String line = new SimpleDateFormat("HH:mm:ss").format(new Date()) + " INJ: " + msg;
+        sLogLines.addFirst(line);
+        while (sLogLines.size() > 40) sLogLines.removeLast();
         try {
             String path = KSN_DTS_LOG_PATH;
             File f = new File(path);
@@ -132,6 +140,28 @@ public final class KsnDtsSys {
                 w.flush();
             } finally { w.close(); }
         } catch (IOException ignored) {}
+    }
+
+    /** 设置页显示: 最近一次注入结果一行. */
+    public static String lastResult() { return sLastResult; }
+
+    /** 设置页实时日志: 最近若干行. */
+    public static String recentLog() {
+        if (sLogLines.isEmpty()) return "(暂无注入日志 — 点「立即注入 DTS 到系统」触发一次)";
+        return String.join("\n", sLogLines);
+    }
+
+    /** 日志文件路径. */
+    public static String logPath() { return KSN_DTS_LOG_PATH; }
+
+    /** 弹 Toast 给用户看最近结果 + 日志. */
+    public static void toastResult(Context ctx) {
+        try {
+            android.widget.Toast t = android.widget.Toast.makeText(ctx,
+                    "【DTS 注入】" + sLastResult + "\n\n" + recentLog(),
+                    android.widget.Toast.LENGTH_LONG);
+            t.show();
+        } catch (Throwable ignored) {}
     }
 
     /** 日志文件绝对路径(调用方传 ctx.getFilesDir(); 这里用固定 fallback). */

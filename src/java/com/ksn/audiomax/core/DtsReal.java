@@ -159,12 +159,33 @@ public final class DtsReal {
                         boolean inj2 = sp.getBoolean("dtsx_inject", true);
                         int style2 = Integer.parseInt(sp.getString("dtsx_style", "1"));
                         boolean play2 = sp.getBoolean("dtsx_play", false);
+                        boolean injectNow = sp.getBoolean("dtsx_inject_now", false);
+                        boolean showLog = sp.getBoolean("dtsx_inject_log", false);
                         if (inj2 != inj) { inj = inj2; setInject(inj2); android.util.Log.i("DtsReal", "轮询 dtsx_inject -> " + inj); }
                         if (style2 != style) { style = style2; setStyle(style); android.util.Log.i("DtsReal", "轮询 dtsx_style -> " + style); }
                         if (play2 != play) {
                             play = play2;
                             com.ksn.audiomax.core.DtsRealX.setPlay(c, style, play2);
                             android.util.Log.i("DtsReal", "轮询 dtsx_play -> " + play + " 已触发 setPlay");
+                        }
+                        // 「立即注入 DTS 到系统」: 翻到 on 就后台跑注入 + 报结果, 再自动复位
+                        if (injectNow) {
+                            final android.content.Context cc = c;
+                            new java.lang.Thread(new java.lang.Runnable() {
+                                public void run() {
+                                    try {
+                                        int r = com.ksn.audiomax.core.KsnDtsSys.inject(cc, "manual");
+                                        android.util.Log.i("DtsReal", "立即注入 rc=" + r + " 结果=" + com.ksn.audiomax.core.KsnDtsSys.lastResult());
+                                        com.ksn.audiomax.core.KsnDtsSys.toastResult(cc);
+                                    } catch (Throwable ignored) {}
+                                    try { cc.getSharedPreferences("application", 0).edit().putBoolean("dtsx_inject_now", false).apply(); } catch (Throwable ignored) {}
+                                }
+                            }, "dtsx-inject").start();
+                        }
+                        // 「注入执行日志」: 翻到 on 弹一次日志/结果, 再复位
+                        if (showLog) {
+                            try { com.ksn.audiomax.core.KsnDtsSys.toastResult(c); } catch (Throwable ignored) {}
+                            try { c.getSharedPreferences("application", 0).edit().putBoolean("dtsx_inject_log", false).apply(); } catch (Throwable ignored) {}
                         }
                     } catch (Throwable ignored) {}
                     try { java.lang.Thread.sleep(1500); } catch (InterruptedException e) { break; }
