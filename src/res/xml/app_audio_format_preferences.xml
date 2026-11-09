@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/audio_format_section_header">
+        <ListPreference app:defaultValue="@string/default_audioformat_encoding" app:entries="@array/audio_format_encodings" app:entryValues="@array/audio_format_encodings_values" app:iconSpaceReserved="false" app:key="@string/key_audioformat_encoding" app:title="@string/audio_format_encoding" app:useSimpleSummaryProvider="true" />
+        <me.timschneeberger.rootlessjamesdsp.preference.MaterialSeekbarPreference android:title="@string/audio_format_buffer_size" android:key="@string/key_audioformat_buffersize" app:allowDividerAbove="false" app:defaultValue="@integer/default_audioformat_buffersize" app:iconSpaceReserved="false" app:labelMinWidth="120.0dip" app:maxValue="16384.0" app:minValue="128.0" app:precision="0" app:seekBarIncrement="128" app:showSeekBarValue="true" app:unit="@string/audio_format_buffer_size_unit" app:updatesContinuously="false" />
+    </PreferenceCategory>
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/audio_format_processing_header">
+        <me.timschneeberger.rootlessjamesdsp.preference.MaterialSwitchPreference android:title="@string/audio_format_processing_legacy" android:key="@string/key_audioformat_processing" android:defaultValue="@bool/default_audioformat_processing" android:summaryOn="@string/audio_format_processing_legacy_on" android:summaryOff="@string/audio_format_processing_legacy_off" android:disableDependentsState="true" app:iconSpaceReserved="false" />
+        <me.timschneeberger.rootlessjamesdsp.preference.MaterialSwitchPreference android:title="@string/audio_format_enhanced_processing" android:key="@string/key_audioformat_enhanced_processing" android:dependency="@string/key_audioformat_processing" android:defaultValue="@bool/default_audioformat_enhanced_processing" android:summaryOn="@string/audio_format_enhanced_processing_on" android:summaryOff="@string/audio_format_enhanced_processing_off" app:iconSpaceReserved="false" />
+        <Preference android:title="@string/audio_format_enhanced_processing_info_title" android:key="@string/key_audioformat_enhanced_processing_info" android:summary="@string/audio_format_enhanced_processing_info" app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="@string/audio_format_optimization_header" app:iconSpaceReserved="false">
+        <me.timschneeberger.rootlessjamesdsp.preference.MaterialSwitchPreference android:title="@string/audio_format_optimization_benchmark" android:key="@string/key_audioformat_optimization_benchmark" android:summary="@string/audio_format_optimization_benchmark_summary" android:defaultValue="@bool/default_audioformat_optimization_benchmark" app:iconSpaceReserved="false" />
+        <Preference android:title="@string/audio_format_optimization_refresh" android:key="@string/key_audioformat_optimization_refresh" android:dependency="@string/key_audioformat_optimization_benchmark" app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+    <PreferenceCategory app:iconSpaceReserved="false" app:title="@string/dtsx_section_title">
+        <me.timschneeberger.rootlessjamesdsp.preference.MaterialSwitchPreference android:title="@string/dtsx_inject_title" android:key="@string/key_dtsx_inject" android:defaultValue="true" android:summaryOn="@string/dtsx_inject_on" android:summaryOff="@string/dtsx_inject_off" app:iconSpaceReserved="false" />
+        <ListPreference android:title="@string/dtsx_style_title" android:key="@string/key_dtsx_style" android:defaultValue="1" android:entries="@array/dtsx_style_entries" android:entryValues="@array/dtsx_style_values" android:summary="@string/dtsx_style_summary" app:iconSpaceReserved="false" app:useSimpleSummaryProvider="true" />
+        <me.timschneeberger.rootlessjamesdsp.preference.MaterialSwitchPreference android:title="@string/dtsx_play_title" android:key="dtsx_play" android:defaultValue="false" android:summaryOn="@string/dtsx_play_on" android:summaryOff="@string/dtsx_play_off" app:iconSpaceReserved="false" />
+        <Preference android:title="@string/dtsx_battery_title" android:summary="@string/dtsx_battery_warning" android:selectable="false" app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+</PreferenceScreen>
