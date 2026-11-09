@@ -12,6 +12,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 
 /**
  * 实时液态玻璃 —— 复刻 Kyant0/AndroidLiquidGlass (Apache-2.0) 的实时渲染效果:
@@ -108,6 +109,7 @@ public final class LiquidGlass {
                 try {
                     setupBackgroundGlass(a, root);
                     walkCards(root);
+                    walkText(root);
                 } catch (Throwable ignored) {}
             }
         });
@@ -116,9 +118,23 @@ public final class LiquidGlass {
                 try {
                     setupBackgroundGlass(a, root);
                     walkCards(root);
+                    walkText(root);
                 } catch (Throwable ignored) {}
             }
         }, 500);
+    }
+
+    /** 全 App 统一白字: 递归把每个 TextView 染白(主文字纯白, hint/次级半透明白), 覆盖布局写死的黑字. */
+    private static void walkText(View v) {
+        if (v instanceof TextView) {
+            TextView t = (TextView) v;
+            t.setTextColor(0xF5FFFFFF);
+            try { t.setHintTextColor(0xB3FFFFFF); } catch (Throwable ignored) {}
+        }
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) walkText(g.getChildAt(i));
+        }
     }
 
     /** 背景层: 铺满风景, 套【折射+色散+磨砂+vibrancy】实时 RenderEffect. 背景被液态弯折. */
