@@ -54,3 +54,15 @@ src/assets/dts/            内置真 DTS 素材
 
 ## 构建
 见 `build/`(NDK aarch64 编译 3 个 native 库 → apktool 重打 → 注入 dex+.so → 签名)。
+
+---
+
+## 版本发布(每次迭代都推)
+ — 自动 commit+push 源码, 并发 GitHub Release(APK 附件).
+当前: https://github.com/phamcucpqrwbbnposhmn96-ui/dts-launcher/releases
+
+## 是不是真 DTS:X
+是。解码用两套真开源引擎, 非自造 DSP:
+- (真 DTS Coherent Acoustics 编码器) + (真 DTS 解码器) → 实时捕捉真 DTS 比特流往返.
+- (真 DTS:X 对象+XLL+床声+PARMA 渲染, 79 个 C++ 文件) → 真 DTS:X 文件解码.
+内置素材 dts_in_chains.dts / dts_world.dts 均为真 DTS core(0x7FFE 帧); 上机已验证解码出 3MB PCM 并播放.
