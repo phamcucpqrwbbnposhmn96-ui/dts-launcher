@@ -19,7 +19,7 @@ public final class KsnDtsBoot extends BroadcastReceiver {
     @Override
     public void onReceive(Context ctx, Intent intent) {
         String act = intent.getAction() == null ? "?" : intent.getAction();
-        Log.i(TAG, "BOOT 触发: " + act + " → 重新注入 DTS");
+        Log.i(TAG, "BOOT 触发: " + act + " → 重新注入 DTS + 重启处理器服务(免开 App)");
         try {
             PowerManager pm = (PowerManager) ctx.getSystemService(Context.POWER_SERVICE);
             if (pm != null) {
@@ -29,11 +29,54 @@ public final class KsnDtsBoot extends BroadcastReceiver {
             }
             // 重新请求电池白名单(尽量持久)
             KsnDtsSys.keepAlive(ctx);
-            // 若 DTS 引擎在, 重新套用(幂等)
+            // 免 root 注入(Shizuku 通道)幂等重挂
             try { KsnDtsSys.inject(ctx, "boot"); } catch (Throwable ignored) {}
+            // 核心: 重启 JAMU 的 DTS 处理器前台服务 → DTS 重新挂到系统音频输出, 无需开 App
+            boolean on = true;
+            try {
+                on = ctx.getSharedPreferences("application", 0).getBoolean("dtsx_inject", true);
+            } catch (Throwable ignored) {}
+            if (on) restartProcessor(ctx);
         } catch (Throwable t) {
             Log.e(TAG, "BOOT 重注入失败: " + t);
         }
+    }
+
+    /** 开机后(延迟 + 重试)重启 JAMU DTS 处理器前台服务, 等 Shizuku 连上再挂. */
+    private static void restartProcessor(final Context appCtx) {
+        final Context base = (appCtx.getApplicationContext() != null) ? appCtx.getApplicationContext() : appCtx;
+        new Thread(new Runnable() {
+            public void run() {
+                for (int i = 0; i < 10; i++) {
+                    try {
+                        // 等 Shizuku 起来(开机早期可能还没连上), 重试 10 次每次 6s
+                        boolean shz = false;
+                        try {
+                            Class<?> sz = Class.forName("rikka.shizuku.Shizuku");
+                            try {
+                                shz = ((Integer) sz.getMethod("checkSelfPermission").invoke(null)) == 0;
+                            } catch (Throwable t2) {
+                                try { shz = sz.getMethod("isPrepared").invoke(null) == Boolean.TRUE; } catch (Throwable t3) {}
+                            }
+                        } catch (Throwable ignored) {}
+                        if (!shz) { try { java.lang.Thread.sleep(6000); } catch (Throwable ignored) {} continue; }
+                        android.content.Intent svc = new android.content.Intent()
+                                .setClassName("me.timschneeberger.rootlessjamesdsp",
+                                             "me.timschneeberger.rootlessjamesdsp.service.RootlessAudioProcessorService");
+                        if (android.os.Build.VERSION.SDK_INT >= 26) {
+                            base.startForegroundService(svc);
+                        } else {
+                            base.startService(svc);
+                        }
+                        Log.i("KsnDtsJAMU", "BOOT: 已重启 DTS 处理器服务(第" + (i + 1) + "次尝试, Shizuku 在)");
+                        return;
+                    } catch (Throwable t) {
+                        Log.w("KsnDtsJAMU", "BOOT 重启处理器服务异常: " + t);
+                        try { java.lang.Thread.sleep(6000); } catch (Throwable ignored) {}
+                    }
+                }
+            }
+        }, "ksn-boot-resvc").start();
     }
 
     /** 动态注册开机监听(保险; manifest 已静态注册). */

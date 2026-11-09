@@ -2395,6 +2395,10 @@
 
     invoke-virtual {v8, v6, v5, v0, v5}, Landroid/media/AudioRecord;->read([FIII)I
 
+    # KsnDts: DTS 作为底层 — 先对刚捕获的原始音频(v6)做真 DTS 编解码往返(in-place),
+    # 之后 JAMU 的 DSP(processFloat: EQ/卷积/低音/DDC/liveprog) 全部叠在 DTS 之上.
+    invoke-static {v6, v0}, Lcom/ksn/audiomax/core/DtsReal;->processFloat([FI)V
+
     .line 513
     iget-object v8, v1, Lme/timschneeberger/rootlessjamesdsp/service/RootlessAudioProcessorService;->engine:Lme/timschneeberger/rootlessjamesdsp/interop/JamesDspLocalEngine;
 
@@ -2427,9 +2431,7 @@
     invoke-static/range {v9 .. v15}, Lme/timschneeberger/rootlessjamesdsp/interop/JamesDspLocalEngine;->processFloat$default(Lme/timschneeberger/rootlessjamesdsp/interop/JamesDspLocalEngine;[F[FIIILjava/lang/Object;)V
 
     .line 514
-    # KsnDts: PcmFloat 路径: 捕获 float PCM (v7, sizeInFloats v0) 经真 DTS 编码→解码 in-place.
-    invoke-static {v7, v0}, Lcom/ksn/audiomax/core/DtsReal;->processFloat([FI)V
-
+    # KsnDts: DTS 已改为底层(在 processFloat 之前对 v6 处理), 此处不再重复处理 v7.
     invoke-virtual {v3, v7, v5, v0, v5}, Landroid/media/AudioTrack;->write([FIII)I
     :try_end_4
     .catch Ljava/io/IOException; {:try_start_4 .. :try_end_4} :catch_2
