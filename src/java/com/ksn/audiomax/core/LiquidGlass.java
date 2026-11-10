@@ -16,8 +16,8 @@ import android.widget.TextView;
 
 /**
  * 实时液态玻璃 —— 复刻 Kyant0/AndroidLiquidGlass 的底层折射逻辑(SdfShader.kt):
- *   背景(海洋)在【每张卡片的圆角 SDF 边缘】被 GPU 实时弯折(refraction) + bevel 高光,
- *   卡片本身全透明, 只有边缘折射+高光, 文字清晰。
+ *   背景(海洋)在【每张卡片的圆角 SDF 边缘】被 GPU 实时强弯折(refraction) + bevel 高光,
+ *   卡片本身近全透明, 只有强边缘折射+高光, 文字高亮白+深阴影(高对比)。
  *   折射参数 refractionHeight/refractionAmount/bevelStrength/lightAngle 全部可自调。
  */
 public final class LiquidGlass {
@@ -26,11 +26,11 @@ public final class LiquidGlass {
     private static final int BG_ID = 0x0D15A1;
 
     // ================= 可自调的折射参数(对应仓库 Lens/SdfShader) =================
-    private static final float CORNER          = 24f;   // 卡片圆角(px 近似)
-    private static final float REFRACTION_HEIGHT = 34f;  // 折射 rim 带宽(窄, 只在卡片圆角边缘一圈)
-    private static final float REFRACTION_AMOUNT   = 60f; // 折射弯折强度(边缘 rim 最强)
-    private static final float BEVEL_STRENGTH      = 0.9f; // 边缘 bevel 高光强度
-    private static final float LIGHT_ANGLE         = 42f;  // 光源角度(度), 决定高光在哪一侧
+    private static final float CORNER          = 22f;   // 卡片圆角(dp)
+    private static final float REFRACTION_HEIGHT = 16f; // 折射 rim 带宽(dp, 只在卡片圆角边缘一圈)
+    private static final float REFRACTION_AMOUNT   = 150f; // 折射弯折强度(px, 边缘 rim 最强 → 强烈边缘折射)
+    private static final float BEVEL_STRENGTH      = 1.5f; // 边缘 bevel 高光强度(玻璃透镜亮边)
+    private static final float LIGHT_ANGLE         = 45f;  // 光源角度(度), 决定高光在哪一侧
     private static final int    MAX_CARDS           = 16;  // 最多同时折射的卡片数
     // ============================================================================
 
@@ -114,9 +114,9 @@ public final class LiquidGlass {
                 }
             }
             int avg = n == 0 ? 0 : sum / n;
-            // 卡片是 ~40% 白玻璃垫在背景上, 文字实际坐在"玻璃面板表面"上 → 按有效表面亮度判
-            int effLum = (avg * 60 + 255 * 40) / 100;
-            sTextColor = (effLum < 140) ? 0xF5FFFFFF : 0xE6000000;   // 亮面板→黑字, 暗面板→白字
+            // 卡片是近全透玻璃垫在背景上, 文字实际坐在"玻璃面板表面"上 → 按有效表面亮度判
+            int effLum = (avg * 90 + 255 * 10) / 100;
+            sTextColor = (effLum < 140) ? 0xFFFFFFFF : 0xE6000000;   // 亮面板→黑字, 暗面板→白字
             Log.i(TAG, "LiquidGlass 背景亮度=" + avg + " 表面=" + effLum + " → 文字=" + (effLum < 140 ? "白" : "黑"));
         } catch (Throwable t) {
             Log.w(TAG, "computeTextColor 失败, 用默认白: " + t);
@@ -146,7 +146,7 @@ public final class LiquidGlass {
         return null;
     }
 
-    /** 在 DecorView 最底层插一个铺满海洋的背景 View, 套【按卡片边缘折射】的实时 RenderEffect. */
+    /** 在 DecorView 最底层插一个铺满海洋的背景 View, 套【按卡片边缘强折射】的实时 RenderEffect. */
     private static void setupBackgroundGlass(Activity a, ViewGroup root) {
         for (int i = 0; i < root.getChildCount(); i++) if (root.getChildAt(i).getId() == BG_ID) return;
         try {
@@ -169,7 +169,7 @@ public final class LiquidGlass {
             });
             // 让主题 windowBackground(海洋)不再重复画, 避免双层
             try { a.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0xFF1A4E86)); } catch (Throwable ignored) {}
-            Log.i(TAG, "LiquidGlass: 海洋背景层已应用【按卡片边缘折射】实时 RenderEffect");
+            Log.i(TAG, "LiquidGlass: 海洋背景层已应用【按卡片边缘强折射】实时 RenderEffect (amount=" + REFRACTION_AMOUNT + " rim=" + REFRACTION_HEIGHT + " bevel=" + BEVEL_STRENGTH + ")");
         } catch (Throwable t) {
             Log.w(TAG, "LiquidGlass 背景层失败: " + t);
         }
@@ -184,8 +184,8 @@ public final class LiquidGlass {
                 sShader = new RuntimeShader(REFRACTION_SHADER);
                 float density = bg.getResources().getDisplayMetrics().density;
                 sShader.setFloatUniform("corner", CORNER * density);
-                sShader.setFloatUniform("refractionHeight", REFRACTION_HEIGHT);
-                sShader.setFloatUniform("refractionAmount", REFRACTION_AMOUNT);
+                sShader.setFloatUniform("refractionHeight", REFRACTION_HEIGHT * density);
+                sShader.setFloatUniform("refractionAmount", REFRACTION_AMOUNT * density);
                 sShader.setFloatUniform("bevelStrength", BEVEL_STRENGTH);
                 sShader.setFloatUniform("lightAngle", LIGHT_ANGLE);
             }
@@ -208,7 +208,7 @@ public final class LiquidGlass {
         return r;
     }
 
-    /** 递归收集 MaterialCardView 的窗口坐标 (x,y,w,h), 并给它们套玻璃镀铬(浅边+顶部高光). */
+    /** 递归收集 MaterialCardView 的窗口坐标 (x,y,w,h), 并给它们套极淡玻璃镀铬(让折射当主角). */
     private static void collectCards(View v, float[] cards, int[] cnt) {
         if (v.getClass().getSimpleName().contains("CardView")) {
             if (v.getWidth() > 40 && v.getHeight() > 24
@@ -232,7 +232,7 @@ public final class LiquidGlass {
         }
     }
 
-    /** 给卡片套玻璃镀铬: 1px 浅边 + 顶部高光(玻璃反光), 让卡片清晰可见(不是全透). 幂等. */
+    /** 给卡片套极淡玻璃镀铬: 1px 淡边(只勾勒卡片边界), 把视觉舞台让给边缘折射. 幂等. */
     private static void applyGlassChrome(View v) {
         try {
             if (Boolean.TRUE.equals(v.getTag())) return;
@@ -243,8 +243,8 @@ public final class LiquidGlass {
             for (int i = 0; i < 8; i++) cr[i] = r;
             gd.setCornerRadii(cr);
             gd.setOrientation(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM);
-            gd.setColors(new int[] { 0x55FFFFFF, 0x14FFFFFF, 0x00FFFFFF, 0x00FFFFFF }); // 顶部高光→透明
-            gd.setStroke(1, 0x66FFFFFF);   // 1px 浅边
+            gd.setColors(new int[] { 0x18FFFFFF, 0x0AFFFFFF, 0x00FFFFFF, 0x00FFFFFF }); // 极淡顶部高光→透明(把舞台让给折射)
+            gd.setStroke(1, 0x33FFFFFF);   // 1px 淡边(只勾勒卡片边界)
             v.setForeground(gd);
             v.setTag(Boolean.TRUE);
         } catch (Throwable ignored) {}
