@@ -22,12 +22,12 @@
         <item name="android:windowExitAnimation">@anim/mtrl_bottom_sheet_slide_out</item>
     </style>
     <style name="AppTheme.AlertDialogTheme" parent="@style/ThemeOverlay.Material3.MaterialAlertDialog">
-        <item name="colorBackgroundFloating">#C820243A</item>
-        <item name="colorSurface">#C820243A</item>
-        <item name="colorOnSurface">#F5FFFFFF</item>
-        <item name="colorOnSurfaceVariant">#E0FFFFFF</item>
-        <item name="android:textColorPrimary">#F5FFFFFF</item>
-        <item name="android:textColorSecondary">#E0FFFFFF</item>
+        <item name="colorBackgroundFloating">#E6FFFFFF</item>
+        <item name="colorSurface">#E6FFFFFF</item>
+        <item name="colorOnSurface">#DE000000</item>
+        <item name="colorOnSurfaceVariant">#8F000000</item>
+        <item name="android:textColorPrimary">#DE000000</item>
+        <item name="android:textColorSecondary">#8F000000</item>
         <item name="dialogCornerRadius">28.0dip</item>
     </style>
     <style name="Base.AlertDialog.AppCompat" parent="@android:style/Widget">
@@ -315,16 +315,16 @@
         <item name="cardCornerRadius">@dimen/corner_radius</item>
         <item name="materialCardViewStyle">@style/Theme.RootlessJamesDSP.CardView</item>
         <item name="materialSwitchStyle">@style/Widget.Material3.CompoundButton.MaterialSwitch</item>
-        <!-- DTS 液态玻璃 + 风景背景: 窗体铺风景图(被实时 GPU 折射), 卡片全透明玻璃, 文字白色 -->
+        <!-- DTS 液态玻璃 + 真实海洋背景: 卡片可见磨砂玻璃, 背景(海洋)在卡片边缘 GPU 实时折射, 文字随背景亮度自适应 -->
         <item name="android:windowBackground">@drawable/bg_scenery</item>
-        <item name="colorSecondaryContainer">#00FFFFFF</item>
-        <item name="colorOnSecondaryContainer">#F5FFFFFF</item>
+        <item name="colorSecondaryContainer">#4DFFFFFF</item>
+        <item name="colorOnSecondaryContainer">#DE000000</item>
         <item name="colorSurface">#00FFFFFF</item>
         <item name="colorSurfaceVariant">#00FFFFFF</item>
-        <item name="colorOnSurface">#F5FFFFFF</item>
-        <item name="colorOnSurfaceVariant">#E0FFFFFF</item>
-        <item name="android:textColorPrimary">#F5FFFFFF</item>
-        <item name="android:textColorSecondary">#E0FFFFFF</item>
+        <item name="colorOnSurface">#DE000000</item>
+        <item name="colorOnSurfaceVariant">#8F000000</item>
+        <item name="android:textColorPrimary">#DE000000</item>
+        <item name="android:textColorSecondary">#8F000000</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>
@@ -4013,7 +4013,6 @@
     </style>
     <style name="Theme.RootlessJamesDSP.CardView" parent="@style/Widget.Material3.CardView.Elevated">
         <item name="cardElevation">0dp</item>
-        <item name="android:background">@android:color/transparent</item>
     </style>
     <style name="Theme.RootlessJamesDSP.Dialog" parent="@style/Base.Theme.RootlessJamesDSP.Dialog" />
     <style name="Theme.RootlessJamesDSP.GreenApple" parent="@style/Theme.RootlessJamesDSP">
