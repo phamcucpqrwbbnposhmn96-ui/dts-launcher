@@ -320,14 +320,14 @@
         <item name="sliderStyle">@style/DtsSlider</item>
         <!-- DTS 液态玻璃 + 真实海洋背景: 卡片近全透玻璃, 背景(海洋)在卡片边缘 GPU 实时强折射, 文字高亮白+描边高对比 -->
         <item name="android:windowBackground">@drawable/bg_scenery</item>
-        <item name="colorSecondaryContainer">#1FFFFFFF</item>
-        <item name="colorOnSecondaryContainer">#FFFFFFFF</item>
-        <item name="colorSurface">#00FFFFFF</item>
-        <item name="colorSurfaceVariant">#00FFFFFF</item>
-        <item name="colorOnSurface">#FFFFFFFF</item>
-        <item name="colorOnSurfaceVariant">#FFFFFF</item>
-        <item name="android:textColorPrimary">#FFFFFFFF</item>
-        <item name="android:textColorSecondary">#F0FFFFFF</item>
+        <item name="colorSecondaryContainer">@color/dts_glass_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/dts_glass_on_secondary_container</item>
+        <item name="colorSurface">@color/dts_glass_surface</item>
+        <item name="colorSurfaceVariant">@color/dts_glass_surface_variant</item>
+        <item name="colorOnSurface">@color/dts_glass_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/dts_glass_on_surface_variant</item>
+        <item name="android:textColorPrimary">@color/dts_glass_text_primary</item>
+        <item name="android:textColorSecondary">@color/dts_glass_text_secondary</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
     </style>

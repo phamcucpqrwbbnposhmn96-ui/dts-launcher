@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DTS 液态玻璃主题色: 全部走 @color 资源(而非字面 hex), 避免 resolveColorAttribute→getColor(0) 崩溃 -->
+<resources>
+    <color name="dts_glass_secondary_container">#1FFFFFFF</color>
+    <color name="dts_glass_on_secondary_container">#FFFFFFFF</color>
+    <color name="dts_glass_surface">#00FFFFFF</color>
+    <color name="dts_glass_surface_variant">#00FFFFFF</color>
+    <color name="dts_glass_on_surface">#FFFFFFFF</color>
+    <color name="dts_glass_on_surface_variant">#FFFFFF</color>
+    <color name="dts_glass_text_primary">#FFFFFFFF</color>
+    <color name="dts_glass_text_secondary">#F0FFFFFF</color>
+</resources>
