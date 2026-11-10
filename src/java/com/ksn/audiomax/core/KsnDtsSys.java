@@ -201,11 +201,17 @@ public final class KsnDtsSys {
 
     /** 弹 Toast 给用户看最近结果 + 日志. */
     public static void toastResult(Context ctx) {
+        final android.content.Context c = (ctx.getApplicationContext() != null) ? ctx.getApplicationContext() : ctx;
+        final String msg = "【DTS 注入】" + sLastResult + "\n\n" + recentLog();
         try {
-            android.widget.Toast t = android.widget.Toast.makeText(ctx,
-                    "【DTS 注入】" + sLastResult + "\n\n" + recentLog(),
-                    android.widget.Toast.LENGTH_LONG);
-            t.show();
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable() {
+                public void run() {
+                    try {
+                        android.widget.Toast t = android.widget.Toast.makeText(c, msg, android.widget.Toast.LENGTH_LONG);
+                        t.show();
+                    } catch (Throwable ignored) {}
+                }
+            });
         } catch (Throwable ignored) {}
     }
 
@@ -213,5 +219,99 @@ public final class KsnDtsSys {
     static String KSN_DTS_LOG_PATH = "/data/local/tmp/ksn_dts_inject.log";
     public static void setLogDir(File filesDir) {
         if (filesDir != null) KSN_DTS_LOG_PATH = new File(filesDir, LOG_NAME).getAbsolutePath();
+    }
+
+    // ================= Root 模式: 一键写入系统音频 DTS:X(重启不掉) =================
+    private static final String DTSX_SVC = "me.timschneeberger.rootlessjamesdsp/.service.RootlessAudioProcessorService";
+    private static final String MOD_DIR  = "/data/adb/modules/dtsx_system_audio";
+
+    /** 是否已获取 root. 用 ProcessBuilder 参数列表(无 shell, 无拼接). */
+    public static boolean rootAvailable() {
+        try {
+            ProcessBuilder pb = new ProcessBuilder();
+            pb.command(java.util.Arrays.asList("su", "-c", "id"));
+            java.lang.Process p = pb.start();
+            String out = readAll(p);
+            p.waitFor();
+            return out != null && out.contains("uid=0");
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private static String readAll(java.lang.Process p) throws IOException {
+        try (java.io.BufferedReader br = new java.io.BufferedReader(
+                new java.io.InputStreamReader(p.getInputStream()))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) sb.append(line).append('\n');
+            return sb.toString();
+        }
+    }
+
+    /**
+     * Root 一键写入 DTS:X 系统音频(重启不掉): 装一个 Magisk 模块到 /data/adb/modules,
+     * 其 service.sh 每次开机由 Magisk 以 root 运行 → 自动拉起全局 DTS:X 处理器, 无需 Shizuku。
+     * shell 逻辑放在固定脚本文件里; Java 只跑一条 su 命令(参数列表, 内容固定, 无用户输入)。
+     */
+    public static String rootWriteDtsx(Context ctx) {
+        StringBuilder sb = new StringBuilder();
+        if (!rootAvailable()) {
+            sb.append("✗ 未检测到 root(su). 请用 Magisk/KernelSU 授权 DTS 开启器后重试.");
+            sLastResult = sb.toString(); log(sb.toString());
+            return sb.toString();
+        }
+        sb.append("✓ 已获取 root. ");
+        File dir = new File(ctx.getFilesDir(), "dtsx_module");
+        dir.mkdirs();
+        try {
+            writeModuleFiles(dir);
+            sb.append("模块+脚本已生成. ");
+        } catch (Throwable t) {
+            sb.append("生成模块失败: ").append(t);
+            sLastResult = sb.toString(); log(sb.toString());
+            return sb.toString();
+        }
+        File installSh = new File(dir, "install.sh");
+        try {
+            ProcessBuilder pb = new ProcessBuilder();
+            pb.command(java.util.Arrays.asList("su", "-c", "sh " + installSh.getAbsolutePath()));
+            java.lang.Process p = pb.start();
+            String out = readAll(p);
+            int code = p.waitFor();
+            sb.append(code == 0 ? "Magisk 模块已写入 /data/adb/modules(重启自动重注, 不掉), 已拉起 DTS:X. "
+                                : "执行结果 code=" + code + " out=" + out + " ");
+        } catch (Throwable t) {
+            sb.append("root 执行失败: ").append(t);
+        }
+        sLastResult = sb.toString();
+        log("=== Root 写入 DTS:X 系统音频 === " + sb);
+        return sb.toString();
+    }
+
+    /** 生成固定的 module.prop / service.sh / install.sh(内容无用户输入). */
+    private static void writeModuleFiles(File dir) throws IOException {
+        try (BufferedWriter w = new BufferedWriter(new FileWriter(new File(dir, "module.prop")))) {
+            w.write("id=dtsx_system_audio\nname=DTS:X System Audio\nversion=1\nversionCode=1\nauthor=ksn\n"
+                  + "description=Root-inject global DTS:X audio processor on boot (reboot-persistent)\n"
+                  + "enabled=true\nminMagisk=24000\n");
+        }
+        try (BufferedWriter w = new BufferedWriter(new FileWriter(new File(dir, "service.sh")))) {
+            w.write("#!/system/bin/sh\nsleep 45\n");
+            w.write("am start-foreground-service -n " + DTSX_SVC + " 2>/dev/null\n");
+            w.write("am startservice -n " + DTSX_SVC + " 2>/dev/null\nexit 0\n");
+        }
+        String mod = MOD_DIR, src = dir.getAbsolutePath(), svc = DTSX_SVC;
+        try (BufferedWriter w = new BufferedWriter(new FileWriter(new File(dir, "install.sh")))) {
+            w.write("#!/system/bin/sh\n");
+            w.write("mkdir -p " + mod + "\n");
+            w.write("cp " + src + "/module.prop " + mod + "/\n");
+            w.write("cp " + src + "/service.sh " + mod + "/\n");
+            w.write("chmod 755 " + mod + "/module.prop " + mod + "/service.sh\n");
+            w.write("chcon u:object_r:system_file:s0 " + mod + "/service.sh 2>/dev/null\n");
+            w.write("am start-foreground-service -n " + svc + " 2>/dev/null\n");
+            w.write("am startservice -n " + svc + " 2>/dev/null\n");
+            w.write("echo OK\n");
+        }
     }
 }

@@ -205,6 +205,24 @@ public final class DtsReal {
                                 }
                             }, "dtsx-bg-guard").start();
                         }
+                        // 「Root 一键写入 DTS:X 系统音频」: 翻到 on 走 root(Magisk)写入, 重启不掉
+                        boolean rootWrite = sp.getBoolean("dtsx_root_write", false);
+                        if (rootWrite) {
+                            final android.content.Context rc = c;
+                            new java.lang.Thread(new java.lang.Runnable() {
+                                public void run() {
+                                    try {
+                                        String r = com.ksn.audiomax.core.KsnDtsSys.rootWriteDtsx(rc);
+                                        android.util.Log.i("DtsReal", "Root 写入 DTS:X: " + r);
+                                        try {
+                                            android.widget.Toast t = android.widget.Toast.makeText(rc, "【Root 写入 DTS:X】" + r, android.widget.Toast.LENGTH_LONG);
+                                            t.show();
+                                        } catch (Throwable ignored) {}
+                                    } catch (Throwable ignored) {}
+                                    try { rc.getSharedPreferences("application", 0).edit().putBoolean("dtsx_root_write", false).apply(); } catch (Throwable ignored) {}
+                                }
+                            }, "dtsx-root-write").start();
+                        }
                     } catch (Throwable ignored) {}
                     try { java.lang.Thread.sleep(1500); } catch (InterruptedException e) { break; }
                 }

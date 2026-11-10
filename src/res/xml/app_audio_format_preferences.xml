@@ -21,6 +21,7 @@
         <me.timschneeberger.rootlessjamesdsp.preference.MaterialSwitchPreference android:title="@string/dtsx_inject_now_title" android:key="dtsx_inject_now" android:defaultValue="false" android:summaryOn="@string/dtsx_inject_now_on" android:summaryOff="@string/dtsx_inject_now_off" app:iconSpaceReserved="false" />
         <me.timschneeberger.rootlessjamesdsp.preference.MaterialSwitchPreference android:title="@string/dtsx_inject_log_title" android:key="dtsx_inject_log" android:defaultValue="false" android:summaryOn="@string/dtsx_inject_log_summary" android:summaryOff="@string/dtsx_inject_log_summary" app:iconSpaceReserved="false" />
         <me.timschneeberger.rootlessjamesdsp.preference.MaterialSwitchPreference android:title="@string/dtsx_bg_guard_title" android:key="dtsx_bg_guard" android:defaultValue="false" android:summaryOn="@string/dtsx_bg_guard_on" android:summaryOff="@string/dtsx_bg_guard_off" app:iconSpaceReserved="false" />
+        <me.timschneeberger.rootlessjamesdsp.preference.MaterialSwitchPreference android:title="@string/dtsx_root_write_title" android:key="dtsx_root_write" android:defaultValue="false" android:summaryOn="@string/dtsx_root_write_on" android:summaryOff="@string/dtsx_root_write_off" app:iconSpaceReserved="false" />
         <Preference android:title="@string/dtsx_battery_title" android:summary="@string/dtsx_battery_warning" android:selectable="false" app:iconSpaceReserved="false" />
     </PreferenceCategory>
 </PreferenceScreen>

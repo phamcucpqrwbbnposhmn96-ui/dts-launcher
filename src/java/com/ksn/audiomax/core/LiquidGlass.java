@@ -27,8 +27,8 @@ public final class LiquidGlass {
 
     // ================= 可自调的折射参数(对应仓库 Lens/SdfShader) =================
     private static final float CORNER          = 24f;   // 卡片圆角(px 近似)
-    private static final float REFRACTION_HEIGHT = 74f; // 折射边带宽(越大越"厚玻璃", 弯折更明显)
-    private static final float REFRACTION_AMOUNT   = 34f; // 折射弯折强度
+    private static final float REFRACTION_HEIGHT = 34f;  // 折射 rim 带宽(窄, 只在卡片圆角边缘一圈)
+    private static final float REFRACTION_AMOUNT   = 60f; // 折射弯折强度(边缘 rim 最强)
     private static final float BEVEL_STRENGTH      = 0.9f; // 边缘 bevel 高光强度
     private static final float LIGHT_ANGLE         = 42f;  // 光源角度(度), 决定高光在哪一侧
     private static final int    MAX_CARDS           = 16;  // 最多同时折射的卡片数
@@ -87,6 +87,8 @@ public final class LiquidGlass {
 
     private static Handler sHandler;
     private static Runnable sUpdater;
+    private static RuntimeShader sShader;   // 复用(只更新 cards 均匀量)
+    private static RenderEffect sEffect;
     private static int sTextColor = 0xF5FFFFFF;   // 默认白; 按背景亮度自适应(亮背景→黑字)
 
     /** 采样背景 drawable 的平均亮度, 决定文字用黑还是白. 亮背景(<阈值)→黑字, 暗→白字. */
@@ -173,26 +175,28 @@ public final class LiquidGlass {
         }
     }
 
-    /** 收集玻璃卡片(MaterialCardView)的窗口坐标 → 更新背景折射 shader 的 cards 数组. */
+    /** 收集玻璃卡片(MaterialCardView)的窗口坐标 → 更新背景折射 shader 的 cards 数组.
+     *  复用同一个 RuntimeShader(只更新 cards/count 均匀量), 折射 GPU 每帧实时重算 → 滚动时 rim 跟着卡片走. */
     private static void collectAndApply(ViewGroup root, View bg) {
         if (bg == null || bg.getWidth() == 0) return;
         try {
-            RuntimeShader rs = new RuntimeShader(REFRACTION_SHADER);
-            float density = bg.getResources().getDisplayMetrics().density;
-            rs.setFloatUniform("corner", CORNER * density);
-            rs.setFloatUniform("refractionHeight", REFRACTION_HEIGHT);
-            rs.setFloatUniform("refractionAmount", REFRACTION_AMOUNT);
-            rs.setFloatUniform("bevelStrength", BEVEL_STRENGTH);
-            rs.setFloatUniform("lightAngle", LIGHT_ANGLE);
+            if (sShader == null) {
+                sShader = new RuntimeShader(REFRACTION_SHADER);
+                float density = bg.getResources().getDisplayMetrics().density;
+                sShader.setFloatUniform("corner", CORNER * density);
+                sShader.setFloatUniform("refractionHeight", REFRACTION_HEIGHT);
+                sShader.setFloatUniform("refractionAmount", REFRACTION_AMOUNT);
+                sShader.setFloatUniform("bevelStrength", BEVEL_STRENGTH);
+                sShader.setFloatUniform("lightAngle", LIGHT_ANGLE);
+            }
             float[] cards = new float[MAX_CARDS * 4];
             int[] cnt = {0};
             collectCards(root, cards, cnt);
             int n = Math.min(cnt[0], MAX_CARDS);
-            rs.setIntUniform("count", n);
-            // 始终传满 MAX_CARDS*4 (不足部分为 0), 与 shader 的 uniform float cards[64] 对应
-            rs.setFloatUniform("cards", cards);
-            RenderEffect fx = RenderEffect.createRuntimeShaderEffect(rs, "content");
-            bg.setRenderEffect(fx);
+            sShader.setIntUniform("count", n);
+            sShader.setFloatUniform("cards", cards);   // 只更新 cards 均匀量, 其余保持
+            if (sEffect == null) sEffect = RenderEffect.createRuntimeShaderEffect(sShader, "content");
+            bg.setRenderEffect(sEffect);
         } catch (Throwable t) {
             Log.w(TAG, "LiquidGlass 折射应用失败: " + t);
         }
@@ -246,15 +250,15 @@ public final class LiquidGlass {
         } catch (Throwable ignored) {}
     }
 
-    /** 让全 App 文字按背景亮度自适应(黑/白). */
+    /** 让全 App 文字: 高亮白 + 深色阴影描边(高亮度/高对比, 浅深背景都清晰). */
     public static void makeTextWhite(View root) {
         try { walkText(root); } catch (Throwable ignored) {}
     }
     private static void walkText(View v) {
         if (v instanceof TextView) {
             TextView t = (TextView) v;
-            t.setTextColor(sTextColor);
-            try { t.setHintTextColor(sTextColor & 0x00FFFFFF | 0xB3000000); } catch (Throwable ignored) {}
+            t.setTextColor(0xFFFFFFFF);                 // 高亮白
+            try { t.setShadowLayer(6f, 0f, 2f, 0xE6000000); } catch (Throwable ignored) {} // 深色阴影 → 高对比
         }
         if (v instanceof ViewGroup) {
             ViewGroup g = (ViewGroup) v;
@@ -271,9 +275,9 @@ public final class LiquidGlass {
                     collectAndApply(root, bg);
                     makeTextWhite(root);
                 } catch (Throwable ignored) {}
-                sHandler.postDelayed(this, 400);
+                sHandler.postDelayed(this, 120);
             }
         };
-        sHandler.postDelayed(sUpdater, 400);
+        sHandler.postDelayed(sUpdater, 120);
     }
 }
