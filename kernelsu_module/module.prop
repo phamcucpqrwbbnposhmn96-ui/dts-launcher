@@ -1,0 +1,7 @@
+id=dtsx_system_audio
+name=DTS:X System Audio
+version=1.0
+versionCode=1
+author=ksn
+description=Auto-starts the global DTS:X audio processor (JAMU RootlessAudioProcessorService) on every boot. Reboot-persistent, no app interaction needed. Pairs with the DTS 开启器 (me.timschneeberger.rootlessjamesdsp) app which must stay installed.
+minKernel=4.14.0

@@ -115,6 +115,15 @@ public final class KsnDtsSys {
         int sdk = Build.VERSION.SDK_INT;
         String rom = Build.MANUFACTURER + " " + Build.MODEL + " Android " + sdk;
         log("=== 注入开始 === 设备=" + rom + " 用户uid=" + Process.myUid());
+        // 方法 0: root 通道【优先】—— 有 root(KernelSU/Magisk 授本 App) 就走 root, 不碰 Shizuku,
+        //  并写 KernelSU/Magisk 模块到 /data/adb/modules 实现【重启持久化(不掉)】, 服务开机自启
+        if (rootAvailable()) {
+            String rr = rootEnterMain(ctx);
+            log("方法0 root 通道(优先, 含模块持久化): " + rr);
+            sLastResult = "✓ 注入成功 (root 直连+模块持久化, 无 Shizuku) " + rr;
+            return 0;
+        }
+        log("无 root → 回退 Shizuku 免 root 通道");
         // 方法 1: Shizuku 免 root(adb/开发者模式)特权音频代理 —— 主路径
         int r1 = tryMethod(ctx, 1, "Shizuku(rootless 代理)");
         if (r1 >= 0) { log("方法1 Shizuku 注入成功"); sLastResult = "✓ 注入成功 (方法1 Shizuku 免root)"; return 0; }
@@ -123,8 +132,8 @@ public final class KsnDtsSys {
         int r2 = tryMethod(ctx, 2, "adb 激活 Shizuku");
         if (r2 >= 0) { log("方法2 adb-Shizuku 注入成功"); sLastResult = "✓ 注入成功 (方法2 adb 激活 Shizuku)"; return 0; }
         log("方法2 adb-Shizuku 失败 → 提示用户手动");
-        log("注入未成功: 需用户在 Shizuku 里授权 + adb 激活, 或 root 下用 Magisk 音频模块");
-        sLastResult = "✗ 未成功: Shizuku 未连/未授权, 需 adb 激活或在 Shizuku 里授权; 或 root 用 Magisk 模块";
+        log("注入未成功: 无 root 且 Shizuku 未授权. 请给 DTS 开启器 授 root(KernelSU/Magisk), 或在 Shizuku 里授权");
+        sLastResult = "✗ 未成功: 无 root 且 Shizuku 未授权; 请给 DTS 开启器 授 root 走 Root 通道, 或在 Shizuku 里授权";
         return -1;
     }
 
@@ -225,9 +234,28 @@ public final class KsnDtsSys {
     private static final String DTSX_SVC = "me.timschneeberger.rootlessjamesdsp/.service.RootlessAudioProcessorService";
     private static final String MOD_DIR  = "/data/adb/modules/dtsx_system_audio";
 
-    /** 是否已获取 root. 用 ProcessBuilder 参数列表(无 shell, 无拼接). */
+    /** 滑杆/交互震动(短震一下). 无震动器则忽略. */
+    public static void haptic(Context ctx) {
+        try {
+            if (ctx == null) return;
+            android.content.Context app = ctx.getApplicationContext();
+            android.os.Vibrator vb = (android.os.Vibrator) app.getSystemService(Context.VIBRATOR_SERVICE);
+            if (vb == null) return;
+            if (Build.VERSION.SDK_INT >= 26) {
+                android.os.VibrationEffect eff = android.os.VibrationEffect.createOneShot(28L, 128);
+                if (app.checkSelfPermission(Manifest.permission.VIBRATE) == 0) vb.vibrate(eff);
+            } else {
+                vb.vibrate(28L);
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    /** 是否已获取 root. 覆盖两种情况:
+     *  - 普通 Magisk/APatch: 存在 su 二进制, `su -c id` → uid=0.
+     *  - KernelSU: 内核 grant, 无 su 二进制; 给本 App 授 root 后进程本身以 uid 0 跑 → myUid()==0. */
     public static boolean rootAvailable() {
         try {
+            if (android.os.Process.myUid() == 0) return true;      // KernelSU/Magisk 给 App 授 root
             ProcessBuilder pb = new ProcessBuilder();
             pb.command(java.util.Arrays.asList("su", "-c", "id"));
             java.lang.Process p = pb.start();
@@ -235,6 +263,150 @@ public final class KsnDtsSys {
             p.waitFor();
             return out != null && out.contains("uid=0");
         } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** Shizuku 是否已授权(rikka.shizuku.Shizuku.checkSelfPermission()==0 或 isPrepared). */
+    public static boolean shizukuUp() {
+        try {
+            Class<?> sz = Class.forName("rikka.shizuku.Shizuku");
+            try {
+                int p = (Integer) sz.getMethod("checkSelfPermission").invoke(null);
+                if (p == 0) return true;
+            } catch (Throwable ignored) {}
+            try {
+                if (Boolean.TRUE.equals(sz.getMethod("isPrepared").invoke(null))) return true;
+            } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    /** onboarding 是否可跳过: 有 root 或 Shizuku 已授权 → 直接进主页, 不再卡在"选择设置方式". */
+    public static boolean onboardingBypass(Context ctx) {
+        return rootAvailable() || shizukuUp();
+    }
+
+    /** 以 root 直接拉起全局 DTS:X 处理器服务(不依赖 Shizuku). 返回摘要. */
+    public static String rootStartService(Context ctx) {
+        StringBuilder sb = new StringBuilder();
+        if (!rootAvailable()) {
+            sb.append("✗ 未检测到 root. 请在 KernelSU/Magisk 里把「DTS 开启器」设为 root(授予 root)后重试.");
+            log("rootStartService: " + sb);
+            return sb.toString();
+        }
+        try {
+            // 起全局 DTS:X 处理器服务: uid==0 直接用 am; 否则走 su -c am
+            String cmd = "am start-foreground-service -n " + DTSX_SVC + " 2>/dev/null; am startservice -n " + DTSX_SVC + " 2>/dev/null; echo OK";
+            ProcessBuilder pb = new ProcessBuilder();
+            if (android.os.Process.myUid() == 0) pb.command(java.util.Arrays.asList("sh", "-c", cmd));
+            else pb.command(java.util.Arrays.asList("su", "-c", cmd));
+            java.lang.Process p = pb.start();
+            String out = readAll(p);
+            int code = p.waitFor();
+            sb.append("✓ root 已拉起全局 DTS:X 处理器服务(code=").append(code).append(" ").append(out.trim()).append(")");
+        } catch (Throwable t) {
+            sb.append("拉起服务失败: ").append(t);
+        }
+        log("rootStartService: " + sb);
+        return sb.toString();
+    }
+
+    /** "Root 一键进主页": 起全局 DTSX 服务 + 写模块持久化(重启不掉) + 标记跳过 onboarding → 直接进主页. */
+    public static String rootEnterMain(Context ctx) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(rootStartService(ctx));
+        try {
+            sb.append(" ").append(rootWriteDtsx(ctx));
+        } catch (Throwable ignored) {}
+        // 标记: 下次/当前 onboarding 直接跳主页
+        try {
+            ctx.getSharedPreferences("application", 0).edit().putBoolean("dtsx_skip_onboarding", true).apply();
+            sb.append(" 已设「跳过 onboarding 直进主页」");
+        } catch (Throwable ignored) {}
+        sLastResult = sb.toString();
+        return sb.toString();
+    }
+
+    // ================= Root 一键接管系统音频为 DTS:X(删系统自带音效, 可逆) =================
+    /** 一键接管: 起全局 DTSX 服务 + 写 KernelSU 模块(重启不掉) + 禁用系统自带音效(可逆). */
+    public static String rootTakeOverSystemAudio(Context ctx) {
+        StringBuilder sb = new StringBuilder();
+        if (!rootAvailable()) {
+            sb.append("✗ 无 root. 请在 KernelSU/Magisk 给「DTS 开启器」授 root(授完重开 App).");
+            sLastResult = sb.toString(); log("rootTakeOver: " + sb); return sb.toString();
+        }
+        sb.append(rootStartService(ctx)).append(" | ");
+        try { sb.append(rootWriteDtsx(ctx)).append(" | "); } catch (Throwable ignored) {}
+        int n = disableStockAudioFX(ctx);
+        sb.append("禁用系统音效 ").append(n).append(" 项 | ");
+        try { ctx.getSharedPreferences("application", 0).edit().putBoolean("dtsx_takeover", true).apply(); } catch (Throwable ignored) {}
+        sb.append("✓ 系统音频已接管为 DTS:X, 模块已写(重启不掉). 改 DTSX 设置( EQ/低频/DDC/增益/模式 )系统音频随之变");
+        sLastResult = sb.toString(); log("rootTakeOver: " + sb);
+        return sb.toString();
+    }
+
+    /** 发现系统自带音效包(启发式: 名字含 sound/audio/fx/effect/enhance/dolby/dts, 排除核心/自身). 返回包名列表. */
+    public static java.util.List<String> discoverAudioFXPackages(Context ctx) {
+        java.util.List<String> out = new java.util.ArrayList<String>();
+        try {
+            android.content.pm.PackageManager pm = ctx.getPackageManager();
+            java.util.List<android.content.pm.PackageInfo> all = pm.getInstalledPackages(0);
+            for (android.content.pm.PackageInfo pi : all) {
+                String p = pi.packageName;
+                if (p == null) continue;
+                String lp = p.toLowerCase();
+                if (lp.contains("rootlessjames") || lp.contains("ksn") || lp.contains("ksn.dts")) continue;
+                if (lp.contains("android.media") || lp.contains("framework") || lp.contains("core")) continue;
+                boolean hit = lp.contains("sound") || lp.contains("audio") || lp.contains("fx")
+                        || lp.contains("effect") || lp.contains("enhance") || lp.contains("dolby")
+                        || lp.contains("dts") || lp.contains("vivo.music") || lp.contains("hi-fi");
+                if (hit) out.add(p);
+            }
+        } catch (Throwable ignored) {}
+        return out;
+    }
+
+    /** 禁用系统自带音效(root, disable-user 可逆, 不碰 /system). 返回禁用数量. 记得列表供一键恢复. */
+    public static int disableStockAudioFX(Context ctx) {
+        java.util.List<String> targets = discoverAudioFXPackages(ctx);
+        if (targets.isEmpty()) return 0;
+        StringBuilder cmd = new StringBuilder();
+        for (String p : targets) cmd.append("cmd package set-enabled -u 0 ").append(p).append(" false 2>/dev/null; ");
+        if (runRootShell(ctx, cmd.toString())) {
+            int n = targets.size();
+            try { ctx.getSharedPreferences("application", 0).edit().putString("dtsx_disabled_fx", String.join(",", targets)).apply(); } catch (Throwable ignored) {}
+            log("disableStockAudioFX: " + n + " → " + targets);
+            return n;
+        }
+        return 0;
+    }
+
+    /** 恢复之前禁用的系统音效(一键可逆). */
+    public static int reenableStockAudioFX(Context ctx) {
+        String saved = "";
+        try { saved = ctx.getSharedPreferences("application", 0).getString("dtsx_disabled_fx", ""); } catch (Throwable ignored) {}
+        if (saved == null || saved.trim().isEmpty()) return 0;
+        String[] pks = saved.split(",");
+        StringBuilder cmd = new StringBuilder();
+        for (String p : pks) if (p != null && p.trim().length() > 0) cmd.append("cmd package set-enabled -u 0 ").append(p.trim()).append(" true 2>/dev/null; ");
+        int n = runRootShell(ctx, cmd.toString()) ? pks.length : 0;
+        try { ctx.getSharedPreferences("application", 0).edit().putString("dtsx_disabled_fx", "").apply(); } catch (Throwable ignored) {}
+        log("reenableStockAudioFX: " + n);
+        return n;
+    }
+
+    /** 以 root 跑一条固定 shell(参数安全: uid0 直接 sh, 否则 su -c). 内容无用户输入. */
+    private static boolean runRootShell(Context ctx, String shCmd) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder();
+            if (android.os.Process.myUid() == 0) pb.command(java.util.Arrays.asList("sh", "-c", shCmd));
+            else pb.command(java.util.Arrays.asList("su", "-c", shCmd));
+            java.lang.Process p = pb.start();
+            readAll(p);
+            return p.waitFor() == 0;
+        } catch (Throwable t) {
+            log("runRootShell 失败: " + t);
             return false;
         }
     }
@@ -275,11 +447,13 @@ public final class KsnDtsSys {
         File installSh = new File(dir, "install.sh");
         try {
             ProcessBuilder pb = new ProcessBuilder();
-            pb.command(java.util.Arrays.asList("su", "-c", "sh " + installSh.getAbsolutePath()));
+            // KernelSU 无 su 二进制但 App 已被授 root(uid 0)→ 直接 sh 跑; Magisk/APatch → 走 su -c
+            if (android.os.Process.myUid() == 0) pb.command(java.util.Arrays.asList("sh", installSh.getAbsolutePath()));
+            else pb.command(java.util.Arrays.asList("su", "-c", "sh " + installSh.getAbsolutePath()));
             java.lang.Process p = pb.start();
             String out = readAll(p);
             int code = p.waitFor();
-            sb.append(code == 0 ? "Magisk 模块已写入 /data/adb/modules(重启自动重注, 不掉), 已拉起 DTS:X. "
+            sb.append(code == 0 ? "DTS:X 模块已写入 /data/adb/modules(重启自动重注, 不掉), 已拉起. "
                                 : "执行结果 code=" + code + " out=" + out + " ");
         } catch (Throwable t) {
             sb.append("root 执行失败: ").append(t);

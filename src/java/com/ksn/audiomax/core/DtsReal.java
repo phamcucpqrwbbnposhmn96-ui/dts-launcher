@@ -223,6 +223,60 @@ public final class DtsReal {
                                 }
                             }, "dtsx-root-write").start();
                         }
+                        // 「Root 一键进主页」: 纯 root 通道(不走 Shizuku)—— 起全局 DTSX + 写模块 + 标记跳 onboarding 直接进主页
+                        boolean rootEnter = sp.getBoolean("dtsx_root_enter", false);
+                        if (rootEnter) {
+                            final android.content.Context rec = c;
+                            new java.lang.Thread(new java.lang.Runnable() {
+                                public void run() {
+                                    try {
+                                        String r = com.ksn.audiomax.core.KsnDtsSys.rootEnterMain(rec);
+                                        android.util.Log.i("DtsReal", "Root 一键进主页: " + r);
+                                        try {
+                                            android.widget.Toast t = android.widget.Toast.makeText(rec, "【Root 一键】" + r, android.widget.Toast.LENGTH_LONG);
+                                            t.show();
+                                        } catch (Throwable ignored) {}
+                                    } catch (Throwable ignored) {}
+                                    try { rec.getSharedPreferences("application", 0).edit().putBoolean("dtsx_root_enter", false).apply(); } catch (Throwable ignored) {}
+                                }
+                            }, "dtsx-root-enter").start();
+                        }
+                        // 「Root 一键接管系统音频为 DTS:X」: 起全局 DTSX + 写模块(重启不掉) + 禁用系统自带音效
+                        boolean takeover = sp.getBoolean("dtsx_takeover_system", false);
+                        if (takeover) {
+                            final android.content.Context tc = c;
+                            new java.lang.Thread(new java.lang.Runnable() {
+                                public void run() {
+                                    try {
+                                        String r = com.ksn.audiomax.core.KsnDtsSys.rootTakeOverSystemAudio(tc);
+                                        android.util.Log.i("DtsReal", "Root 接管系统音频: " + r);
+                                        try {
+                                            android.widget.Toast t = android.widget.Toast.makeText(tc, "【接管系统音频】" + r, android.widget.Toast.LENGTH_LONG);
+                                            t.show();
+                                        } catch (Throwable ignored) {}
+                                    } catch (Throwable ignored) {}
+                                    try { tc.getSharedPreferences("application", 0).edit().putBoolean("dtsx_takeover_system", false).apply(); } catch (Throwable ignored) {}
+                                }
+                            }, "dtsx-takeover").start();
+                        }
+                        // 「恢复系统自带音效」: 把之前禁用的音效包重新启用
+                        boolean reenable = sp.getBoolean("dtsx_reenable_stock", false);
+                        if (reenable) {
+                            final android.content.Context ec = c;
+                            new java.lang.Thread(new java.lang.Runnable() {
+                                public void run() {
+                                    try {
+                                        int n = com.ksn.audiomax.core.KsnDtsSys.reenableStockAudioFX(ec);
+                                        android.util.Log.i("DtsReal", "恢复系统音效: " + n);
+                                        try {
+                                            android.widget.Toast t = android.widget.Toast.makeText(ec, "已恢复系统自带音效 " + n + " 项", android.widget.Toast.LENGTH_LONG);
+                                            t.show();
+                                        } catch (Throwable ignored) {}
+                                    } catch (Throwable ignored) {}
+                                    try { ec.getSharedPreferences("application", 0).edit().putBoolean("dtsx_reenable_stock", false).apply(); } catch (Throwable ignored) {}
+                                }
+                            }, "dtsx-reenable").start();
+                        }
                     } catch (Throwable ignored) {}
                     try { java.lang.Thread.sleep(1500); } catch (InterruptedException e) { break; }
                 }

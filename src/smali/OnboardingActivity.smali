@@ -145,8 +145,8 @@
     .line 21
     invoke-super {p0, p1}, Lme/timschneeberger/rootlessjamesdsp/activity/BaseActivity;->onCreate(Landroid/os/Bundle;)V
 
-    # ===== DTS root 通道: 检测到 root(KernelSU/Magisk) 就跳过 Shizuku onboarding, 直接进主页 =====
-    invoke-static {}, Lcom/ksn/audiomax/core/KsnDtsSys;->rootAvailable()Z
+    # ===== DTS: root 或 Shizuku 已授权 → 跳过 Shizuku onboarding, 直接进主页 =====
+    invoke-static {p0}, Lcom/ksn/audiomax/core/KsnDtsSys;->onboardingBypass(Landroid/content/Context;)Z
 
     move-result v0
 

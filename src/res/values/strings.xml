@@ -948,4 +948,10 @@ Do you want to visit the download website for the Magisk packages now?"</string>
     <string name="dtsx_root_enter_title">Root 一键进主页</string>
     <string name="dtsx_root_enter_on">已触发: root 直连, 跳过 Shizuku 直接进主页 + 起全局 DTS:X</string>
     <string name="dtsx_root_enter_off">关(纯 root 通道, 不走 Shizuku)</string>
+    <string name="dtsx_takeover_system_title">Root 一键接管系统音频为 DTS:X</string>
+    <string name="dtsx_takeover_system_on">已触发: 起全局 DTSX + 写 KernelSU 模块(重启不掉) + 禁用系统自带音效</string>
+    <string name="dtsx_takeover_system_off">关(root 接管: 系统音频从此输出 DTS:X, 改 DTSX 设置随之变)</string>
+    <string name="dtsx_reenable_stock_title">恢复系统自带音效</string>
+    <string name="dtsx_reenable_stock_on">已恢复被禁用的系统音效</string>
+    <string name="dtsx_reenable_stock_off">关(重新启用之前接管理解时禁用的系统音效包)</string>
 </resources>
